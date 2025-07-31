@@ -1,0 +1,60 @@
+# Grafana 数据源配置 - Loki
+apiVersion: 1
+
+datasources:
+  # Loki 数据源
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    uid: loki-uid
+    isDefault: true
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # 从日志中提取 trace ID 并链接到 Jaeger
+        - datasourceUid: jaeger-uid
+          matcherRegex: "trace_id=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"
+        # 从日志中提取用户 ID
+        - matcherRegex: "user_id=(\\w+)"
+          name: UserID
+          url: "/d/user-dashboard?var-user_id=$${__value.raw}"
+    version: 1
+
+  # Prometheus 数据源 (可选，用于指标关联)
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    uid: prometheus-uid
+    isDefault: false
+    editable: true
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - datasourceUid: loki-uid
+          name: trace_id
+    version: 1
+
+  # Jaeger 数据源 (可选，用于链路追踪)
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    uid: jaeger-uid
+    isDefault: false
+    editable: true
+    jsonData:
+      tracesToLogs:
+        datasourceUid: loki-uid
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        mapTagNamesEnabled: false
+        spanStartTimeShift: '1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
+    version: 1

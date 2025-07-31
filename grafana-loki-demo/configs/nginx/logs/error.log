@@ -1,0 +1,2 @@
+2025/07/31 08:31:43 [error] 31#31: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.147.1, server: localhost, request: "GET /health HTTP/1.1", upstream: "http://192.168.147.2:8080/health", host: "localhost"
+2025/07/31 08:34:07 [error] 31#31: *3 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.147.1, server: localhost, request: "GET /health HTTP/1.1", upstream: "http://192.168.147.2:8080/health", host: "localhost"

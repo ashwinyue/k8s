@@ -1,0 +1,202 @@
+# Promtail 配置文件
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+# 客户端配置 - 连接到 Loki
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    tenant_id: ""
+    batchwait: 1s
+    batchsize: 1048576
+    timeout: 10s
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+    external_labels:
+      cluster: docker-compose
+      environment: development
+
+# 位置配置 - 记录读取位置
+positions:
+  filename: /tmp/positions.yaml
+
+# 目标配置 - 定义日志采集规则
+scrape_configs:
+  # Go Demo 应用日志
+  - job_name: go-demo
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: go-demo
+          app: go-demo
+          environment: development
+          __path__: /var/log/go-demo/app.log
+    
+    # 管道配置 - 日志处理规则
+    pipeline_stages:
+      # JSON 解析
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            message: message
+            service: service
+            trace_id: trace_id
+            span_id: span_id
+            user_id: user_id
+            request_id: request_id
+            method: method
+            path: path
+            status_code: status_code
+            duration: duration
+            error: error
+      
+      # 时间戳解析
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      
+      # 标签提取
+      - labels:
+          level:
+          service:
+          method:
+          status_code:
+      
+      # 输出格式化
+      - output:
+          source: message
+
+  # Nginx 访问日志
+  - job_name: nginx-access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          app: nginx
+          log_type: access
+          environment: development
+          __path__: /var/log/nginx/access.log
+    
+    pipeline_stages:
+      # Nginx 日志格式解析
+      - regex:
+          expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<path>\S+) (?P<protocol>\S+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+      
+      # 时间戳解析
+      - timestamp:
+          source: time_local
+          format: 02/Jan/2006:15:04:05 -0700
+      
+      # 标签提取
+      - labels:
+          method:
+          status:
+          remote_addr:
+      
+      # 输出格式化
+      - template:
+          source: output
+          template: '{{.method}} {{.path}} {{.status}} {{.body_bytes_sent}}'
+
+  # Nginx 错误日志
+  - job_name: nginx-error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          app: nginx
+          log_type: error
+          environment: development
+          __path__: /var/log/nginx/error.log
+    
+    pipeline_stages:
+      # Nginx 错误日志解析
+      - regex:
+          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<level>\w+)\] (?P<pid>\d+)#(?P<tid>\d+): (?P<message>.*)'
+      
+      # 时间戳解析
+      - timestamp:
+          source: timestamp
+          format: 2006/01/02 15:04:05
+      
+      # 标签提取
+      - labels:
+          level:
+          pid:
+      
+      # 输出格式化
+      - output:
+          source: message
+
+  # 系统日志 (可选)
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          app: system
+          environment: development
+          __path__: /var/log/host/syslog
+    
+    pipeline_stages:
+      # 系统日志解析
+      - regex:
+          expression: '^(?P<timestamp>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}) (?P<hostname>\S+) (?P<service>\S+): (?P<message>.*)'
+      
+      # 时间戳解析
+      - timestamp:
+          source: timestamp
+          format: Jan 2 15:04:05
+      
+      # 标签提取
+      - labels:
+          hostname:
+          service:
+      
+      # 输出格式化
+      - output:
+          source: message
+
+  # Docker 容器日志 (可选)
+  - job_name: docker
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          environment: development
+          __path__: /var/lib/docker/containers/*/*-json.log
+    
+    pipeline_stages:
+      # Docker 日志 JSON 解析
+      - json:
+          expressions:
+            output: log
+            stream: stream
+            timestamp: time
+      
+      # 时间戳解析
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      
+      # 标签提取
+      - labels:
+          stream:
+      
+      # 输出格式化
+      - output:
+          source: output
+
+# 限制配置
+limits_config:
+  readline_rate: 10000
+  readline_burst: 20000

@@ -1,0 +1,9 @@
+apiVersion: example.com/v1
+kind: MyApp
+metadata:
+  name: test-success
+  namespace: default
+spec:
+  image: nginx:1.21
+  replicas: 2
+  port: 80

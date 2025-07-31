@@ -1,0 +1,27 @@
+# 简单的 Pod 示例
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.20
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+---
+# 使用说明：
+# 1. 应用这个 Pod：kubectl apply -f 02-simple-pod.yaml
+# 2. 查看 Pod 状态：kubectl get pods
+# 3. 查看 Pod 详情：kubectl describe pod nginx-pod
+# 4. 查看 Pod 日志：kubectl logs nginx-pod
+# 5. 删除 Pod：kubectl delete -f 02-simple-pod.yaml

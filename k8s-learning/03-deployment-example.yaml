@@ -1,0 +1,53 @@
+# Deployment 示例
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3  # 运行 3 个副本
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.20
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+---
+# Service 示例 - 为 Deployment 提供网络访问
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP  # 集群内部访问
+---
+# 使用说明：
+# 1. 应用资源：kubectl apply -f 03-deployment-example.yaml
+# 2. 查看 Deployment：kubectl get deployments
+# 3. 查看 Pod：kubectl get pods
+# 4. 查看 Service：kubectl get services
+# 5. 扩展副本：kubectl scale deployment nginx-deployment --replicas=5
+# 6. 查看滚动更新：kubectl rollout status deployment/nginx-deployment
+# 7. 更新镜像：kubectl set image deployment/nginx-deployment nginx=nginx:1.21
+# 8. 删除资源：kubectl delete -f 03-deployment-example.yaml

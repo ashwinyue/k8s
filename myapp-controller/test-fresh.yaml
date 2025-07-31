@@ -1,0 +1,9 @@
+apiVersion: example.com/v1
+kind: MyApp
+metadata:
+  name: test-fresh
+  namespace: default
+spec:
+  image: nginx:1.22
+  replicas: 1
+  port: 80

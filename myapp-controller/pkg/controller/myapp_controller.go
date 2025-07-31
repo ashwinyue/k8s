@@ -49,22 +49,23 @@ func (r *MyAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// 更新状态为 Pending
 	if myApp.Status.Phase == "" {
-		// 重新获取最新的对象以避免资源版本冲突
+		logger.Info("Updating MyApp status to Pending", "name", myApp.Name, "namespace", myApp.Namespace)
+		// 重新获取最新的 MyApp 对象以确保 ResourceVersion 正确
 		latestMyApp := &myappv1.MyApp{}
 		if err := r.Get(ctx, req.NamespacedName, latestMyApp); err != nil {
-			logger.Error(err, "Failed to re-fetch MyApp")
+			logger.Error(err, "Failed to get latest MyApp for status update", "name", req.Name, "namespace", req.Namespace)
 			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 		}
 
+		logger.Info("Got latest MyApp for status update", "resourceVersion", latestMyApp.ResourceVersion)
 		latestMyApp.Status.Phase = "Pending"
 		latestMyApp.Status.Message = "正在创建资源"
-		if err := r.Status().Update(ctx, latestMyApp); err != nil {
-			logger.Error(err, "Failed to update MyApp status")
+		if err := r.Client.Status().Update(ctx, latestMyApp); err != nil {
+			logger.Error(err, "Failed to update MyApp status", "name", latestMyApp.Name, "namespace", latestMyApp.Namespace, "resourceVersion", latestMyApp.ResourceVersion)
 			// 如果状态更新失败，重新排队处理
 			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 		}
-		// 更新本地对象
-		myApp = latestMyApp
+		logger.Info("Successfully updated MyApp status to Pending")
 	}
 
 	// 创建或更新 Deployment
@@ -122,18 +123,25 @@ func (r *MyAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// 更新状态
-	myApp.Status.ReadyReplicas = found.Status.ReadyReplicas
-	if found.Status.ReadyReplicas == myApp.Spec.Replicas {
-		myApp.Status.Phase = "Running"
-		myApp.Status.Message = "所有副本都已就绪"
-	} else {
-		myApp.Status.Phase = "Pending"
-		myApp.Status.Message = fmt.Sprintf("等待副本就绪: %d/%d", found.Status.ReadyReplicas, myApp.Spec.Replicas)
+	// 重新获取最新的 MyApp 对象以确保 ResourceVersion 正确
+	finalMyApp := &myappv1.MyApp{}
+	if err := r.Get(ctx, req.NamespacedName, finalMyApp); err != nil {
+		logger.Error(err, "Failed to get latest MyApp for final status update")
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
-	if err := r.Status().Update(ctx, myApp); err != nil {
+	finalMyApp.Status.ReadyReplicas = found.Status.ReadyReplicas
+	if found.Status.ReadyReplicas == myApp.Spec.Replicas {
+		finalMyApp.Status.Phase = "Running"
+		finalMyApp.Status.Message = "所有副本都已就绪"
+	} else {
+		finalMyApp.Status.Phase = "Pending"
+		finalMyApp.Status.Message = fmt.Sprintf("等待副本就绪: %d/%d", found.Status.ReadyReplicas, myApp.Spec.Replicas)
+	}
+
+	if err := r.Client.Status().Update(ctx, finalMyApp); err != nil {
 		logger.Error(err, "Failed to update MyApp status")
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	return ctrl.Result{RequeueAfter: time.Minute}, nil

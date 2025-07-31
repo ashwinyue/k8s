@@ -1,0 +1,9 @@
+apiVersion: example.com/v1
+kind: MyApp
+metadata:
+  name: complete-test
+  namespace: default
+spec:
+  image: httpd:latest
+  port: 80
+  replicas: 2

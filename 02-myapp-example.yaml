@@ -1,0 +1,20 @@
+# MyApp 自定义资源示例
+apiVersion: example.com/v1
+kind: MyApp
+metadata:
+  name: nginx-app
+  namespace: default
+spec:
+  image: nginx:1.20
+  replicas: 3
+  port: 80
+---
+apiVersion: example.com/v1
+kind: MyApp
+metadata:
+  name: redis-app
+  namespace: default
+spec:
+  image: redis:6.2
+  replicas: 1
+  port: 6379
